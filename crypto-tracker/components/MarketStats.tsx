@@ -21,13 +21,19 @@ export default function MarketStats() {
 
   useEffect(() => {
     fetchMarketStats();
-    const interval = setInterval(fetchMarketStats, 60000); // Update setiap 1 menit
+    const interval = setInterval(fetchMarketStats, 120000); // Update setiap 2 menit (increased from 1)
     return () => clearInterval(interval);
   }, []);
 
   async function fetchMarketStats() {
     try {
       const response = await fetch("/api/crypto?limit=100");
+      
+      if (!response.ok) {
+        console.warn("Failed to fetch market stats, will retry later");
+        return; // Don't update stats on error, keep previous values
+      }
+      
       const data = await response.json();
 
       if (data && data.length > 0) {

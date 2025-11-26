@@ -14,14 +14,22 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { TrendingUp, TrendingDown, Activity } from "lucide-react";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { TrendingUp, TrendingDown, Activity, Info } from "lucide-react";
 import MarketStats from "./MarketStats";
+import ApiStatus from "./ApiStatus";
 
 export default function CryptoTable() {
   const [cryptos, setCryptos] = useState<Cryptocurrency[]>([]);
   const [filteredCryptos, setFilteredCryptos] = useState<Cryptocurrency[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
   const { prices, isConnected, subscribe } = useWebSocket();
 
   useEffect(() => {
@@ -38,6 +46,7 @@ export default function CryptoTable() {
   useEffect(() => {
     // Update prices from WebSocket
     if (Object.keys(prices).length > 0) {
+      setLastUpdateTime(new Date());
       setCryptos((prevCryptos) =>
         prevCryptos.map((crypto) => {
           if (prices[crypto.id]) {
@@ -66,11 +75,23 @@ export default function CryptoTable() {
     try {
       setLoading(true);
       const response = await fetch("/api/crypto?limit=50");
+      
+      if (!response.ok) {
+        console.warn("Failed to fetch cryptos, will use cached data");
+        // Keep previous data on error
+        setLoading(false);
+        return;
+      }
+      
       const data = await response.json();
-      setCryptos(data);
-      setFilteredCryptos(data);
+      
+      if (data && !data.error) {
+        setCryptos(data);
+        setFilteredCryptos(data);
+      }
     } catch (error) {
       console.error("Error fetching cryptos:", error);
+      // Keep previous data on error
     } finally {
       setLoading(false);
     }
@@ -108,16 +129,34 @@ export default function CryptoTable() {
     <div className="container mx-auto py-6 space-y-6">
       <MarketStats />
       
+      <ApiStatus />
+      
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-3xl font-bold">
               Cryptocurrency Prices
             </CardTitle>
-            <Badge variant={isConnected ? "default" : "destructive"} className="flex items-center gap-1">
-              <Activity className="h-3 w-3" />
-              {isConnected ? "Live" : "Disconnected"}
-            </Badge>
+            <div className="flex items-center gap-3">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-xs text-muted-foreground flex items-center gap-1 cursor-help">
+                      <Info className="h-3 w-3" />
+                      Updated: {lastUpdateTime.toLocaleTimeString()}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Prices update every 30 seconds via WebSocket</p>
+                    <p className="text-xs text-muted-foreground">Uses cached data when API is rate limited</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <Badge variant={isConnected ? "default" : "destructive"} className="flex items-center gap-1">
+                <Activity className="h-3 w-3" />
+                {isConnected ? "Live" : "Disconnected"}
+              </Badge>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

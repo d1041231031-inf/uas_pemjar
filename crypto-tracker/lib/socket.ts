@@ -38,17 +38,20 @@ export function initSocketServer(httpServer: HTTPServer) {
         socket.emit('priceUpdate', prices);
       } catch (error) {
         console.error('Error fetching initial prices:', error);
+        // Send empty object on error
+        socket.emit('priceUpdate', {});
       }
 
-      // Update prices every 10 seconds
+      // Update prices every 30 seconds (increased from 10s to avoid rate limiting)
       priceUpdateInterval = setInterval(async () => {
         try {
           const prices = await fetchCryptoPrices(subscribedCoins);
           socket.emit('priceUpdate', prices);
         } catch (error) {
           console.error('Error fetching prices:', error);
+          // Don't emit on error, keep last known prices
         }
-      }, 10000);
+      }, 30000); // Changed from 10000 to 30000 (30 seconds)
     });
 
     socket.on('unsubscribe', () => {
