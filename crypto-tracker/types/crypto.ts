@@ -12,6 +12,9 @@ export interface Cryptocurrency {
   low_24h: number;
   circulating_supply: number;
   last_updated: string;
+  sparkline_in_7d?: {
+    price: number[];
+  };
 }
 
 export interface PriceUpdate {

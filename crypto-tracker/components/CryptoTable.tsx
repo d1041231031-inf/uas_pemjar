@@ -23,6 +23,7 @@ import {
 import { TrendingUp, TrendingDown, Activity, Info, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import MarketStats from "./MarketStats";
 import ApiStatus from "./ApiStatus";
+import MiniChart from "./MiniChart";
 
 type SortField = 'name' | 'price' | 'change' | 'marketCap' | 'volume';
 type SortDirection = 'asc' | 'desc' | null;
@@ -325,6 +326,7 @@ export default function CryptoTable() {
                       <SortIcon field="volume" />
                     </button>
                   </TableHead>
+                  <TableHead className="text-center">Last 7 Days</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -374,6 +376,13 @@ export default function CryptoTable() {
                     </TableCell>
                     <TableCell className="text-right font-mono">
                       {formatNumber(crypto.total_volume)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <MiniChart 
+                        data={crypto.sparkline_in_7d?.price || []} 
+                        width={100} 
+                        height={40}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
