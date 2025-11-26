@@ -4,7 +4,7 @@ import next from 'next';
 import { initSocketServer } from './lib/socket';
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = 'localhost';
+const hostname = process.env.RAILWAY_STATIC_URL ? '0.0.0.0' : 'localhost';
 const port = parseInt(process.env.PORT || '3000', 10);
 
 const app = next({ dev, hostname, port });
@@ -27,5 +27,6 @@ app.prepare().then(() => {
 
   server.listen(port, () => {
     console.log(`> Ready on http://${hostname}:${port}`);
+    console.log(`> Environment: ${dev ? 'development' : 'production'}`);
   });
 });
