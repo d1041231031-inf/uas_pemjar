@@ -42,7 +42,7 @@ export function initSocketServer(httpServer: HTTPServer) {
         socket.emit('priceUpdate', {});
       }
 
-      // Update prices every 30 seconds (increased from 10s to avoid rate limiting)
+      // Update prices every 60 seconds (1 minute)
       priceUpdateInterval = setInterval(async () => {
         try {
           const prices = await fetchCryptoPrices(subscribedCoins);
@@ -51,7 +51,7 @@ export function initSocketServer(httpServer: HTTPServer) {
           console.error('Error fetching prices:', error);
           // Don't emit on error, keep last known prices
         }
-      }, 30000); // Changed from 10000 to 30000 (30 seconds)
+      }, 60000); // 60 seconds (1 minute)
     });
 
     socket.on('unsubscribe', () => {

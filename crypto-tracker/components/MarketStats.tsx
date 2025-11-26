@@ -27,7 +27,7 @@ export default function MarketStats() {
 
   async function fetchMarketStats() {
     try {
-      const response = await fetch("/api/crypto?limit=100");
+      const response = await fetch("/api/crypto?limit=50");
       
       if (!response.ok) {
         console.warn("Failed to fetch market stats, will retry later");
@@ -46,7 +46,7 @@ export default function MarketStats() {
           totalMarketCap: totalMcap,
           total24hVolume: totalVol,
           btcDominance: btcDom,
-          activeCoins: data.length,
+          activeCoins: 50,
         });
       }
     } catch (error) {

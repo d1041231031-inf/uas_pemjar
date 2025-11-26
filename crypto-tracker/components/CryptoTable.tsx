@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { Cryptocurrency } from "@/types/crypto";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import {
@@ -20,9 +20,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { TrendingUp, TrendingDown, Activity, Info } from "lucide-react";
+import { TrendingUp, TrendingDown, Activity, Info, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import MarketStats from "./MarketStats";
 import ApiStatus from "./ApiStatus";
+
+type SortField = 'name' | 'price' | 'change' | 'marketCap' | 'volume';
+type SortDirection = 'asc' | 'desc' | null;
 
 export default function CryptoTable() {
   const [cryptos, setCryptos] = useState<Cryptocurrency[]>([]);
@@ -30,16 +33,29 @@ export default function CryptoTable() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const { prices, isConnected, subscribe } = useWebSocket();
+  const hasSubscribedRef = useRef(false);
+
+  // Update current time every second untuk refresh display
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     fetchCryptos();
   }, []);
 
   useEffect(() => {
-    if (cryptos.length > 0) {
+    if (cryptos.length > 0 && !hasSubscribedRef.current) {
       const coinIds = cryptos.map((c) => c.id);
       subscribe(coinIds);
+      hasSubscribedRef.current = true;
     }
   }, [cryptos, subscribe]);
 
@@ -70,6 +86,72 @@ export default function CryptoTable() {
     );
     setFilteredCryptos(filtered);
   }, [searchTerm, cryptos]);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Toggle direction or reset
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else if (sortDirection === 'desc') {
+        setSortDirection(null);
+        setSortField(null);
+      }
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortedCryptos = () => {
+    if (!sortDirection || !sortField) return filteredCryptos;
+
+    return [...filteredCryptos].sort((a, b) => {
+      let aValue: number;
+      let bValue: number;
+
+      switch (sortField) {
+        case 'name':
+          return sortDirection === 'asc' 
+            ? a.name.localeCompare(b.name)
+            : b.name.localeCompare(a.name);
+        case 'price':
+          aValue = a.current_price;
+          bValue = b.current_price;
+          break;
+        case 'change':
+          aValue = a.price_change_percentage_24h;
+          bValue = b.price_change_percentage_24h;
+          break;
+        case 'marketCap':
+          aValue = a.market_cap;
+          bValue = b.market_cap;
+          break;
+        case 'volume':
+          aValue = a.total_volume;
+          bValue = b.total_volume;
+          break;
+        default:
+          return 0;
+      }
+
+      return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+    });
+  };
+
+  const sortedCryptos = getSortedCryptos();
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-4 w-4 ml-1 opacity-40" />;
+    }
+    if (sortDirection === 'asc') {
+      return <ArrowUp className="h-4 w-4 ml-1" />;
+    }
+    if (sortDirection === 'desc') {
+      return <ArrowDown className="h-4 w-4 ml-1" />;
+    }
+    return <ArrowUpDown className="h-4 w-4 ml-1 opacity-40" />;
+  };
 
   async function fetchCryptos() {
     try {
@@ -114,6 +196,27 @@ export default function CryptoTable() {
     return `$${num.toLocaleString()}`;
   };
 
+  const getTimeAgo = (date: Date) => {
+    const seconds = Math.floor((currentTime.getTime() - date.getTime()) / 1000);
+    
+    if (seconds < 10) return "just now";
+    if (seconds < 60) return `${seconds}s ago`;
+    
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    
+    return date.toLocaleTimeString();
+  };
+
+  // Memoize time display untuk menghindari unnecessary re-renders
+  const timeAgoDisplay = useMemo(
+    () => getTimeAgo(lastUpdateTime),
+    [currentTime, lastUpdateTime]
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -143,12 +246,15 @@ export default function CryptoTable() {
                   <TooltipTrigger asChild>
                     <span className="text-xs text-muted-foreground flex items-center gap-1 cursor-help">
                       <Info className="h-3 w-3" />
-                      Updated: {lastUpdateTime.toLocaleTimeString()}
+                      Updated: {timeAgoDisplay}
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Prices update every 30 seconds via WebSocket</p>
+                    <p>Prices update every 60 seconds via WebSocket</p>
                     <p className="text-xs text-muted-foreground">Uses cached data when API is rate limited</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Last update: {lastUpdateTime.toLocaleTimeString()}
+                    </p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -174,15 +280,55 @@ export default function CryptoTable() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-16">#</TableHead>
-                  <TableHead>Coin</TableHead>
-                  <TableHead className="text-right">Price</TableHead>
-                  <TableHead className="text-right">24h Change</TableHead>
-                  <TableHead className="text-right">Market Cap</TableHead>
-                  <TableHead className="text-right">Volume (24h)</TableHead>
+                  <TableHead>
+                    <button
+                      onClick={() => handleSort('name')}
+                      className="flex items-center hover:text-foreground transition-colors"
+                    >
+                      Coin
+                      <SortIcon field="name" />
+                    </button>
+                  </TableHead>
+                  <TableHead className="text-right">
+                    <button
+                      onClick={() => handleSort('price')}
+                      className="flex items-center ml-auto hover:text-foreground transition-colors"
+                    >
+                      Price
+                      <SortIcon field="price" />
+                    </button>
+                  </TableHead>
+                  <TableHead className="text-right">
+                    <button
+                      onClick={() => handleSort('change')}
+                      className="flex items-center ml-auto hover:text-foreground transition-colors"
+                    >
+                      24h Change
+                      <SortIcon field="change" />
+                    </button>
+                  </TableHead>
+                  <TableHead className="text-right">
+                    <button
+                      onClick={() => handleSort('marketCap')}
+                      className="flex items-center ml-auto hover:text-foreground transition-colors"
+                    >
+                      Market Cap
+                      <SortIcon field="marketCap" />
+                    </button>
+                  </TableHead>
+                  <TableHead className="text-right">
+                    <button
+                      onClick={() => handleSort('volume')}
+                      className="flex items-center ml-auto hover:text-foreground transition-colors"
+                    >
+                      Volume (24h)
+                      <SortIcon field="volume" />
+                    </button>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredCryptos.map((crypto) => (
+                {sortedCryptos.map((crypto) => (
                   <TableRow key={crypto.id} className="hover:bg-muted/50">
                     <TableCell className="font-medium">
                       {crypto.market_cap_rank}
@@ -235,7 +381,7 @@ export default function CryptoTable() {
             </Table>
           </div>
 
-          {filteredCryptos.length === 0 && (
+          {sortedCryptos.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               No cryptocurrencies found matching your search.
             </div>
