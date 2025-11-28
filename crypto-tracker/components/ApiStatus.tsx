@@ -8,7 +8,9 @@ interface ApiStatusProps {
 }
 
 export default function ApiStatus({ className = "" }: ApiStatusProps) {
-  const [status, setStatus] = useState<"healthy" | "cached" | "error">("healthy");
+  const [status, setStatus] = useState<"healthy" | "cached" | "error">(
+    "healthy"
+  );
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   useEffect(() => {
@@ -20,7 +22,7 @@ export default function ApiStatus({ className = "" }: ApiStatusProps) {
       if (message.includes("Rate limited")) {
         setStatus("cached");
         setLastUpdate(new Date());
-        
+
         // Reset to healthy after 2 minutes
         setTimeout(() => {
           setStatus("healthy");
